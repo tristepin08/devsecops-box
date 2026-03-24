@@ -1,0 +1,13 @@
+name: Mon pipeline de securite
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-de-securite:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Lancement de l'alarme
+      run: echo "Le pipeline est en vie et prêt a scanner !"
