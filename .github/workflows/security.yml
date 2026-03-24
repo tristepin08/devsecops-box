@@ -9,5 +9,10 @@ jobs:
   test-de-securite:
     runs-on: ubuntu-latest
     steps:
-    - name: Lancement de l'alarme
-      run: echo "Le pipeline est en vie et prêt a scanner !"
+    - name: Telecharger le code sur le serveur
+      uses: actions/checkout@v4
+
+    - name: Lancer le scanner Semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: p/ci
