@@ -15,4 +15,4 @@ jobs:
     - name: Lancer le scanner Semgrep
       uses: returntocorp/semgrep-action@v1
       with:
-        config: p/security-audit
+        config: p/python
