@@ -1,5 +1,7 @@
-# Fichier de configuration
-# Cette fois-ci, ca a l'air d'etre une vraie cle !
+import os
 
-AWS_ACCESS_KEY_ID = "AKIA5QYUX234Y7D2J4H9"
-AWS_SECRET_ACCESS_KEY = "vH9Pabcde12345FGHIJklmnopqrstuvwxyz0123"
+# Le code va chercher les cles dans la memoire cachee du serveur, 
+# elles ne sont plus ecrites dans le texte !
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
