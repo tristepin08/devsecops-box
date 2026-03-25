@@ -1,5 +1,5 @@
 # 1. On part d'un ordinateur Linux vierge avec Python déjà installé
-FROM python:2.7-slim
+FROM python:3.11-slim
 
 # 2. On crée un dossier /app à l'intérieur de notre boîte
 WORKDIR /app
