@@ -16,3 +16,15 @@ jobs:
       uses: returntocorp/semgrep-action@v1
       with:
         config: p/python
+  scan-de-mot-de-passe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Telecharger l'historique du code
+        uses: actions/checkout@v4
+        with :
+          fetch-depth: 0
+
+      - name: lancer le traqueur Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
