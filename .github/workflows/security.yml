@@ -52,6 +52,6 @@ jobs:
     needs: [test-de-securite, scan-de-mot-de-passe, scan-conteneur]
     runs-on: ubuntu-latest
     steps:
-      - name: Déclencher le déploiement sur Render
+      - name: Declencher le deploiement sur Render
         run: |
-          curl -X POST "https://api.render.com/deploy/${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEYS }}"
+          curl -X POST "${{ secrets.RENDER_DEPLOY_URL }}"
