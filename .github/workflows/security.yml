@@ -49,7 +49,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL'
   deploy:
-    needs: [scan-conteneur, scan-de-code] # On ne déploie QUE si les scans sont verts !
+    needs: [test-de-securite, scan-de-mot-de-passe, scan-conteneur]# On ne déploie QUE si les scans sont verts !
     runs-on: ubuntu-latest
     steps:
       - name: Déclencher le déploiement sur Render
