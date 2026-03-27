@@ -48,3 +48,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL'
+  deploy:
+    needs: [scan-conteneur, scan-de-code] # On ne déploie QUE si les scans sont verts !
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déclencher le déploiement sur Render
+        run: |
+          curl -X POST https://api.render.com/deploy/srv-${{ secrets.RENDER_SERVICE_ID }}?key=${{ secrets.RENDER_API_KEY }}
