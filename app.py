@@ -4,4 +4,4 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "<h1>🚀 MISSION ACCOMPLIE ! Déploiement 100% Automatique et s . Félicitations  ! 🛡️✅</h1>"
+    return "<h1>🚀 MISSION ACCOMPLIE ! Déploiement 100% Automatique .   ! 🛡️✅</h1>"
