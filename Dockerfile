@@ -5,7 +5,7 @@ WORKDIR /app
 # ✅ On copie d'abord les fichiers de configuration
 COPY package*.json ./
 # ✅ Maintenant on peut installer
-RUN npm install --only=production
+RUN npm install --omit=dev
 
 #  Ensuite on copie le reste du code
 COPY . .
