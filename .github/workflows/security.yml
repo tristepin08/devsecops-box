@@ -2,10 +2,8 @@ name: Pipeline DevSecOps Complet
 
 on:
   push:
-    # Se lance à chaque modification sur la branche principale
     branches: [ "main" ]
   schedule:
-    # Scan de sécurité automatique tous les jours à 2h00 du matin
     - cron: '0 2 * * *'
 
 jobs:
@@ -17,27 +15,42 @@ jobs:
       - name: Récupération du code source
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : Chasse aux secrets ---
+      # --- ÉTAPE 2 : Chasse aux secrets (Action Officielle Gitleaks) ---
       - name: Scanner les mots de passe et clés API (Gitleaks)
-        run: gitleaks detect --source . -v
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- ÉTAPE 3 : Analyse statique du code (SAST) ---
+      # --- ÉTAPE 3 : Analyse statique du code (Action Officielle Semgrep) ---
       - name: Scanner le code source (Semgrep)
-        # On inclut les règles pour JavaScript, React, et Python pour couvrir tout ton projet
-        run: semgrep ci --config "p/javascript" --config "p/react" --config "p/python"
+        uses: returntocorp/semgrep-action@v1
+        with:
+          # On donne la liste des dictionnaires à utiliser
+          config: >-
+            p/javascript
+            p/react
+            p/python
+            p/java
+            p/golang
+            p/csharp
+            p/php
+            p/ruby
 
-      # --- ÉTAPE 4 : Analyse des dépendances natives (JS) ---
+      # --- ÉTAPE 4 : Analyse des dépendances (Natif car Node.js est pré-installé) ---
       - name: Vérifier les vulnérabilités npm (Natif)
         run: npm audit --audit-level=high
-        # On ajoute ceci pour que npm audit prévienne sans bloquer brutalement le pipeline
         continue-on-error: true 
 
-      # --- ÉTAPE 5 : Analyse approfondie des bibliothèques (SCA) ---
+      # --- ÉTAPE 5 : Analyse approfondie (Action Officielle Trivy) ---
       - name: Scanner les failles mondiales connues (Trivy)
-        run: trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
 
       # --- ÉTAPE 6 : Déploiement Continu (CD) ---
       - name: Déployer sur Render en toute sécurité
-        # Cette condition garantit que Render n'est appelé QUE si toutes les étapes au-dessus sont vertes
         if: success() 
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
