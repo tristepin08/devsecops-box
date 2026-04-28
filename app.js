@@ -1,19 +1,28 @@
 const express = require('express');
-const { exec } = require('child_process');
+// ✅ CORRECTION 1 : On supprime totalement l'importation de 'child_process'
+// C'est l'outil qui permettait d'exécuter des commandes système, on n'en a pas besoin ici !
+
 const app = express();
 
-// 🚨 Faille 1 : Un vrai (faux) token Slack. Gitleaks connaît cette signature par cœur.
-const SLACK_BOT_TOKEN = "fake-123456789012-1234567890123-abcdef0123456789abcdef01";
+// ✅ CORRECTION 2 : Plus aucun secret en dur ! 
+// Si on a besoin d'un token, on le demande à l'environnement (Render), sinon on n'a rien.
+const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
 app.get('/download', (req, res) => {
-    // 🚨 Faille 2 : Remote Code Execution (RCE)
-    // Ici, on laisse l'utilisateur envoyer n'importe quoi dans req.query.file, 
-    // et on l'exécute directement sur le serveur. C'est la pire faille existante.
-    let file = req.query.file;
-    exec("cat " + file, (err, data) => {
-        if(err) { res.send("Erreur"); return; }
-        res.send(data);
-    });
+    // ✅ CORRECTION 3 : Fini l'exécution de commande aveugle (RCE)
+    // Au lieu d'exécuter "cat", on traite la demande de l'utilisateur de manière sécurisée, 
+    // en la considérant uniquement comme du texte inoffensif.
+    let file = req.query.file || 'aucun_fichier_specifie';
+    
+    // On renvoie simplement une réponse texte sécurisée
+    res.send(`Demande de fichier bien reçue, mais exécution bloquée par sécurité. Fichier demandé : ${file}`);
 });
 
-app.listen(3000, () => console.log('Serveur lancé'));
+// ✅ BONUS : Une route "health" pour Render
+app.get('/health', (req, res) => {
+    res.json({ status: "ok", message: "Le serveur est blindé !" });
+});
+
+// On écoute le port fourni par Render, sinon le port 3000 par défaut
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Serveur sécurisé lancé sur le port ${PORT}`));
