@@ -52,6 +52,8 @@ jobs:
     needs: [test-de-securite, scan-de-mot-de-passe, scan-conteneur]
     runs-on: ubuntu-latest
     steps:
-      - name: Declencher le deploiement sur Render
+      - name: Déployer sur Render
+        # Cette étape ne se lancera QUE si Semgrep, Trivy et Gitleaks ont réussi (sont verts)
+        if: success() 
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_URL }}"
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
