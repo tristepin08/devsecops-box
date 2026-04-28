@@ -22,19 +22,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --- ÉTAPE 3 : Analyse statique du code (Action Officielle Semgrep) ---
-      - name: Scanner le code source (Semgrep)
+      - name: Scanner le code source multilingue (Semgrep)
         uses: returntocorp/semgrep-action@v1
         with:
           # On donne la liste des dictionnaires à utiliser
-          config: >-
-            p/javascript
-            p/react
-            p/python
-            p/java
-            p/golang
-            p/csharp
-            p/php
-            p/ruby
+          config: p/default
+            
 
       # --- ÉTAPE 4 : Analyse des dépendances (Natif car Node.js est pré-installé) ---
       - name: Vérifier les vulnérabilités npm (Natif)
