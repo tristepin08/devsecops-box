@@ -1,10 +1,15 @@
-name: Pipeline DevSecOps Complet
+name: Pipeline DevSecOps Complet (Scan + Build + Push)
 
 on:
   push:
     branches: [ "main" ]
   schedule:
     - cron: '0 2 * * *'
+
+# 🔑 INDISPENSABLE : On autorise GitHub à publier l'image dans ton registre
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   pipeline_securite:
@@ -15,28 +20,25 @@ jobs:
       - name: Récupération du code source
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : Chasse aux secrets (Action Officielle Gitleaks) ---
+      # --- ÉTAPE 2 : Chasse aux secrets (Gitleaks) ---
       - name: Scanner les mots de passe et clés API (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- ÉTAPE 3 : Analyse statique du code (Action Officielle Semgrep) ---
+      # --- ÉTAPE 3 : Analyse statique du code (Semgrep) ---
       - name: Scanner le code source multilingue (Semgrep)
         uses: returntocorp/semgrep-action@v1
         with:
-          # On donne la liste des dictionnaires à utiliser
           config: p/default
-            
 
-      # --- ÉTAPE 4 : Analyse des dépendances (Natif car Node.js est pré-installé) ---
+      # --- ÉTAPE 4 : Analyse des dépendances (Natif) ---
       - name: Vérifier les vulnérabilités npm (Natif)
         run: npm audit --audit-level=high
         continue-on-error: true 
 
       # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
 
-      # 5a. Scan des vulnérabilités dans les dépendances (ton ancien travail)
       - name: 📦 Scan des dépendances (SCA)
         uses: aquasecurity/trivy-action@master
         with:
@@ -45,27 +47,46 @@ jobs:
           format: 'table'
           severity: 'HIGH,CRITICAL'
 
-      # 5b. Scan du Dockerfile (le "blindage" des réglages)
       - name: 🐳 Scan de la config Docker (IaC)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
-          hide-progress: false
           format: 'table'
-          exit-code: '1' # On bloque si le Dockerfile est mal foutu
+          exit-code: '1'
           severity: 'HIGH,CRITICAL'
 
-      # 5c. Scan de l'image de base (le système d'exploitation)
       - name: 🐧 Scan de l'image Linux
         uses: aquasecurity/trivy-action@master
         with:
-          # Ici, on teste l'image que tu utilises dans ton FROM
           image-ref: 'node:alpine' 
           format: 'table'
-          exit-code: '1' # On bloque si l'image de base est une passoire
+          exit-code: '1'
           severity: 'HIGH,CRITICAL'
+          # Si tu as créé un fichier .trivyignore, rajoute cette ligne :
+          # trivyignore: .trivyignore
 
-      # --- ÉTAPE 6 : Déploiement Continu (CD) ---
+      # --- [NOUVELLE ÉTAPE] ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
+      - name: 🔐 Connexion au Registre GitHub Packages
+        if: success()
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- [NOUVELLE ÉTAPE] ÉTAPE 7 : Construction et Envoi de l'image (Push) ---
+      - name: 🚀 Build et Push de l'image sécurisée
+        if: success()
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # Le nom sera automatique : ghcr.io/ton-pseudo/ton-projet:latest
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      # --- ÉTAPE 8 : Déploiement Continu (CD) ---
       - name: Déployer sur Render en toute sécurité
         if: success() 
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}

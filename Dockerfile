@@ -10,7 +10,7 @@ RUN npm install --only=production
 COPY . .
 
 
-FROM node:20-alpine
+FROM node:22-alpine
 
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
