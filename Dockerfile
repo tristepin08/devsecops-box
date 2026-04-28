@@ -1,21 +1,41 @@
-# 🚨 ERREUR 1 : Utilisation d'une image de base ultra-vieille et lourde
-# Cette image (Ubuntu 18.04) contient des centaines de failles (CVE) connues.
-FROM ubuntu:18.04
-
-# 🚨 ERREUR 2 : On reste en utilisateur ROOT (par défaut)
-# Si un pirate prend le contrôle de l'app, il a les pleins pouvoirs sur le container.
-
-# 🚨 ERREUR 3 : Stockage de secrets dans les variables d'environnement
-ENV DATABASE_PASSWORD="mot_de_passe_tres_secret_123"
-
-# On installe des outils inutiles qui augmentent la surface d'attaque
-RUN apt-get update && apt-get install -y curl vim
+# --- ÉTAPE 1 : BUILD (L'atelier de construction) ---
+# On utilise une image "slim" pour installer les dépendances proprement
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# On ne copie que les fichiers de dépendances pour profiter du cache Docker
+COPY package*.json ./
+RUN npm install --only=production
+
+# On copie le reste du code
 COPY . .
 
-# 🚨 ERREUR 4 : On expose un port dangereux (SSH) qui n'a rien à faire ici
-EXPOSE 22
+# --- ÉTAPE 2 : PRODUCTION (La Forteresse) ---
+# On repart d'une image "Alpine" : ultra-légère (5MB) et très sécurisée
+FROM node:20-alpine
+
+# 1. Sécurité Système : On crée un utilisateur NON-PRIVILÉGIÉ
+# Par défaut Docker est root, ici on crée "appuser" qui n'a aucun droit sur le système Linux
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+# 2. Hygiène : On ne récupère que ce qui est nécessaire du builder
+# On laisse derrière nous tous les outils de build, compilateurs, etc.
+COPY --from=builder /app .
+
+# 3. Droits restreints : On donne la propriété des fichiers à notre utilisateur
+RUN chown -R appuser:appgroup /app
+
+# 4. Protection : On bascule sur l'utilisateur limité
+USER appuser
+
+# 5. Réseau : Un seul port ouvert (celui de l'app), pas de SSH (22) !
 EXPOSE 3000
+
+# 6. Santé : On indique à Docker comment vérifier si l'app tourne bien
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["node", "app.js"]
