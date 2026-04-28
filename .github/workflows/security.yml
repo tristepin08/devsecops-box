@@ -34,13 +34,35 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true 
 
-      # --- ÉTAPE 5 : Analyse approfondie (Action Officielle Trivy) ---
-      - name: Scanner les failles mondiales connues (Trivy)
+      # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
+
+      # 5a. Scan des vulnérabilités dans les dépendances (ton ancien travail)
+      - name: 📦 Scan des dépendances (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
+          severity: 'HIGH,CRITICAL'
+
+      # 5b. Scan du Dockerfile (le "blindage" des réglages)
+      - name: 🐳 Scan de la config Docker (IaC)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '1' # On bloque si le Dockerfile est mal foutu
+          severity: 'HIGH,CRITICAL'
+
+      # 5c. Scan de l'image de base (le système d'exploitation)
+      - name: 🐧 Scan de l'image Linux
+        uses: aquasecurity/trivy-action@master
+        with:
+          # Ici, on teste l'image que tu utilises dans ton FROM
+          image-ref: 'node:alpine' 
+          format: 'table'
+          exit-code: '1' # On bloque si l'image de base est une passoire
           severity: 'HIGH,CRITICAL'
 
       # --- ÉTAPE 6 : Déploiement Continu (CD) ---
