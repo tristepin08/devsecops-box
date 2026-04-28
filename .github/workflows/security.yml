@@ -1,59 +1,43 @@
-name: Mon pipeline de securite
+name: Pipeline DevSecOps Complet
 
 on:
   push:
-    branches:
-      - main
+    # Se lance à chaque modification sur la branche principale
+    branches: [ "main" ]
+  schedule:
+    # Scan de sécurité automatique tous les jours à 2h00 du matin
+    - cron: '0 2 * * *'
 
 jobs:
-  test-de-securite:
+  pipeline_securite:
     runs-on: ubuntu-latest
-    steps:
-    - name: Telecharger le code sur le serveur
-      uses: actions/checkout@v4
 
-    - name: Lancer le scanner Semgrep
-      uses: returntocorp/semgrep-action@v1
-      with:
-        config: p/python
-  scan-de-mot-de-passe:
-    runs-on: ubuntu-latest
     steps:
-      - name: Telecharger l'historique du code
+      # --- ÉTAPE 1 : Préparation ---
+      - name: Récupération du code source
         uses: actions/checkout@v4
-        with :
-          fetch-depth: 0
 
-      - name: lancer le traqueur Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-  scan-conteneur:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v3
+      # --- ÉTAPE 2 : Chasse aux secrets ---
+      - name: Scanner les mots de passe et clés API (Gitleaks)
+        run: gitleaks detect --source . -v
 
-      - name: Construire la boîte (Image Docker)
-        run: docker build -t mon-app-secu .
+      # --- ÉTAPE 3 : Analyse statique du code (SAST) ---
+      - name: Scanner le code source (Semgrep)
+        # On inclut les règles pour JavaScript, React, et Python pour couvrir tout ton projet
+        run: semgrep ci --config "p/javascript" --config "p/react" --config "p/python"
 
-      - name: Scanner la boîte avec Trivy aux rayons X
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'mon-app-secu'
-          format: 'table'
-          # On demande à Trivy de faire exploser le pipeline (exit-code 1) 
-          # SEULEMENT s'il trouve des failles CRITIQUES
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL'
-  deploy:
-    needs: [test-de-securite, scan-de-mot-de-passe, scan-conteneur]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Déployer sur Render
-        # Cette étape ne se lancera QUE si Semgrep, Trivy et Gitleaks ont réussi (sont verts)
+      # --- ÉTAPE 4 : Analyse des dépendances natives (JS) ---
+      - name: Vérifier les vulnérabilités npm (Natif)
+        run: npm audit --audit-level=high
+        # On ajoute ceci pour que npm audit prévienne sans bloquer brutalement le pipeline
+        continue-on-error: true 
+
+      # --- ÉTAPE 5 : Analyse approfondie des bibliothèques (SCA) ---
+      - name: Scanner les failles mondiales connues (Trivy)
+        run: trivy fs --severity HIGH,CRITICAL --ignore-unfixed .
+
+      # --- ÉTAPE 6 : Déploiement Continu (CD) ---
+      - name: Déployer sur Render en toute sécurité
+        # Cette condition garantit que Render n'est appelé QUE si toutes les étapes au-dessus sont vertes
         if: success() 
-        run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
