@@ -9,7 +9,7 @@ on:
 # 🔑 INDISPENSABLE : On autorise GitHub à publier l'image dans ton registre
 permissions:
   contents: read
-  packages: write/
+  packages: write
 
 jobs:
   pipeline_securite:
