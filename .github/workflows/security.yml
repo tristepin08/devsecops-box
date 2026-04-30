@@ -6,7 +6,7 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
-# 🔑 INDISPENSABLE : On autorise GitHub à publier l'image dans ton registre
+#  INDISPENSABLE : On autorise GitHub à publier l'image dans ton registre
 permissions:
   contents: read
   packages: write
@@ -39,7 +39,7 @@ jobs:
 
       # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
 
-      - name: 📦 Scan des dépendances (SCA)
+      - name:  Scan des dépendances (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -47,7 +47,7 @@ jobs:
           format: 'table'
           severity: 'HIGH,CRITICAL'
 
-      - name: 🐳 Scan de la config Docker (IaC)
+      - name:  Scan de la config Docker (IaC)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
@@ -55,7 +55,7 @@ jobs:
           exit-code: '1'
           severity: 'HIGH,CRITICAL'
 
-      - name: 🐧 Scan de l'image Linux
+      - name:  Scan de l'image Linux
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'node:alpine' 
@@ -66,7 +66,7 @@ jobs:
           # trivyignore: .trivyignore
 
       # --- [NOUVELLE ÉTAPE] ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
-      - name: 🔐 Connexion au Registre GitHub Packages
+      - name:  Connexion au Registre GitHub Packages
         if: success()
         uses: docker/login-action@v3
         with:
@@ -75,7 +75,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # # --- ÉTAPE 7 : Construction et Envoi (Version corrigée pour les majuscules) ---
-      - name: 🚀 Build et Push de l'image sécurisée
+      - name:  Build et Push de l'image sécurisée
         if: success()
         uses: docker/build-push-action@v5
         with:
@@ -86,6 +86,6 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
           # Petit réglage pour forcer le passage en minuscules si besoin
       # --- ÉTAPE 8 : Déploiement Continu (CD) ---
-      #- name: Déployer sur Render en toute sécurité
-      #if: success() 
-      #  run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+      - name: Déployer sur Render en toute sécurité
+        if: success() 
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
