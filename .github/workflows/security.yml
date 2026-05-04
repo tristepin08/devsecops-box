@@ -55,15 +55,24 @@ jobs:
           exit-code: '1'
           severity: 'HIGH,CRITICAL'
 
-      - name:  Scan de l'image Linux
+      - name: Scan de l'image Linux (JSON pour DefectDojo)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'node:alpine' 
-          format: 'table'
-          exit-code: '1'
+          image-ref: 'node:alpine'
+          format: 'json'
+          output: 'trivy-report.json'
           severity: 'HIGH,CRITICAL'
-          # Si tu as créé un fichier .trivyignore, rajoute cette ligne :
-          # trivyignore: .trivyignore
+        # On ajoute ça pour que le pipeline ne s'arrête pas s'il trouve une faille, 
+        # sinon il n'enverra jamais le rapport !
+        continue-on-error: true 
+
+      - name: Envoyer vers DefectDojo
+        run: |
+          curl -X POST "https://https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Trivy Scan" \
+            -F "file=@trivy-report.json" \
+            -F "engagement=1"
 
       # --- [NOUVELLE ÉTAPE] ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
       - name:  Connexion au Registre GitHub Packages
@@ -85,7 +94,17 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
           # Petit réglage pour forcer le passage en minuscules si besoin
-      # --- ÉTAPE 8 : Déploiement Continu (CD) ---
+      # --- ÉTAPE 8 
+      - name: Envoyer le rapport Trivy vers DefectDojo
+        if: always() # <--- Indispensable pour recevoir le rapport même si une faille est trouvée
+        run: |
+          curl -X POST "https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
+          -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+          -F "scan_type=Trivy Scan" \
+          -F "file=@trivy-report.json" \
+          -F "engagement=1"
+      # --- ÉTAPE 9
       - name: Déployer sur Render en toute sécurité
-        if: success() 
+        if: success() # <--- On ne déploie que si les étapes précédentes (scans) sont OK
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+
