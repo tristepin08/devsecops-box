@@ -6,7 +6,6 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
-#  INDISPENSABLE : On autorise GitHub à publier l'image dans ton registre
 permissions:
   contents: read
   packages: write
@@ -25,21 +24,25 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # On génère le rapport JSON pour DefectDojo
+          args: detect --report-format json --report-path gitleaks-report.json
+        continue-on-error: true
 
       # --- ÉTAPE 3 : Analyse statique du code (Semgrep) ---
       - name: Scanner le code source multilingue (Semgrep)
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/default
+        run: |
+          python3 -m pip install semgrep
+          semgrep scan --config auto --json -o semgrep-report.json
+        continue-on-error: true
 
       # --- ÉTAPE 4 : Analyse des dépendances (Natif) ---
       - name: Vérifier les vulnérabilités npm (Natif)
         run: npm audit --audit-level=high
-        continue-on-error: true 
+        continue-on-error: true
 
       # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
-
-      - name:  Scan des dépendances (SCA)
+      - name: Scan des dépendances (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -47,7 +50,7 @@ jobs:
           format: 'table'
           severity: 'HIGH,CRITICAL'
 
-      - name:  Scan de la config Docker (IaC)
+      - name: Scan de la config Docker (IaC)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
@@ -62,20 +65,10 @@ jobs:
           format: 'json'
           output: 'trivy-report.json'
           severity: 'HIGH,CRITICAL'
-        # On ajoute ça pour que le pipeline ne s'arrête pas s'il trouve une faille, 
-        # sinon il n'enverra jamais le rapport !
-        continue-on-error: true 
+        continue-on-error: true
 
-      - name: Envoyer vers DefectDojo
-        run: |
-          curl -X POST "https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Trivy Scan" \
-            -F "file=@trivy-report.json" \
-            -F "engagement=1"
-
-      # --- [NOUVELLE ÉTAPE] ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
-      - name:  Connexion au Registre GitHub Packages
+      # --- ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
+      - name: Connexion au Registre GitHub Packages
         if: success()
         uses: docker/login-action@v3
         with:
@@ -83,28 +76,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # # --- ÉTAPE 7 : Construction et Envoi (Version corrigée pour les majuscules) ---
-      - name:  Build et Push de l'image sécurisée
+      # --- ÉTAPE 7 : Construction et Envoi de l'image ---
+      - name: Build et Push de l'image sécurisée
         if: success()
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          # On utilise "github.repository_owner" en minuscules
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
-          # Petit réglage pour forcer le passage en minuscules si besoin
-      # --- ÉTAPE 8 
+
+      # --- ÉTAPE 8 : Envoi des rapports vers DefectDojo ---
       - name: Envoyer le rapport Trivy vers DefectDojo
-        if: always() # <--- Indispensable pour recevoir le rapport même si une faille est trouvée
+        if: always()
         run: |
           curl -X POST "https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
-          -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-          -F "scan_type=Trivy Scan" \
-          -F "file=@trivy-report.json" \
-          -F "engagement=1"
-      # --- ÉTAPE 9
-      - name: Déployer sur Render en toute sécurité
-        if: success() # <--- On ne déploie que si les étapes précédentes (scans) sont OK
-        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Trivy Scan" \
+            -F "file=@trivy-report.json" \
+            -F "engagement=1"
 
+      - name: Envoyer le rapport Semgrep vers DefectDojo
+        if: always()
+        run: |
+          curl -X POST "https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Semgrep JSON Report" \
+            -F "file=@semgrep-report.json" \
+            -F "engagement=1"
+
+      - name: Envoyer le rapport Gitleaks vers DefectDojo
+        if: always()
+        run: |
+          curl -X POST "https://kind-peaches-report.loca.lt/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Gitleaks Scan" \
+            -F "file=@gitleaks-report.json" \
+            -F "engagement=1"
+
+      # --- ÉTAPE 9 : Déploiement sur Render ---
+      - name: Déployer sur Render en toute sécurité
+        if: success()
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
