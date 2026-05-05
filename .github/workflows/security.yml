@@ -107,7 +107,7 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -F "scan_type=Gitleaks Scan" \
             -F "file=@gitleaks-report.json" \
-            -F "engagement=1"
+            -F "engagement=1" 
 
       # --- ÉTAPE 9 : Déploiement sur Render (Ta ligne originale) ---
       - name: Déployer sur Render en toute sécurité
