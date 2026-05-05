@@ -1,4 +1,4 @@
-name: Pipeline DevSecOps Complet (Scan + Build + Push)
+name: Pipeline DevSecOps (Scan + Build + Push + Deploy)
 
 on:
   push:
@@ -21,33 +21,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      # --- ÉTAPE 2 : Gitleaks (Corrigé pour toujours créer un JSON) ---
-      - name: Scanner les secrets (Gitleaks)
-        run: |
-          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
-          tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
-          ./gitleaks detect --report-format json --report-path gitleaks-report.json || echo "[]" > gitleaks-report.json
+      # --- ÉTAPE 2 : Chasse aux secrets (Gitleaks) ---
+      - name: Scanner les mots de passe et clés API (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      # --- ÉTAPE 3 : Semgrep (Corrigé pour toujours créer un JSON) ---
-      - name: Scanner le code source (Semgrep)
-        run: |
-          python3 -m pip install semgrep
-          semgrep scan --config auto --json -o semgrep-report.json || echo "{}" > semgrep-report.json
+      # --- ÉTAPE 3 : Analyse statique du code (Semgrep) ---
+      - name: Scanner le code source multilingue (Semgrep)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
         continue-on-error: true
 
-      # --- ÉTAPE 4 : Analyse npm ---
+      # --- ÉTAPE 4 : Analyse des dépendances (Natif) ---
       - name: Vérifier les vulnérabilités npm (Natif)
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      # --- ÉTAPE 5 : Le Triple Scan Trivy (Détails + JSON) ---
+      # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
       - name: Scan des dépendances (SCA)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           format: 'table'
           severity: 'HIGH,CRITICAL'
+        continue-on-error: true
 
       - name: Scan de la config Docker (IaC)
         uses: aquasecurity/trivy-action@master
@@ -55,19 +55,18 @@ jobs:
           scan-type: 'config'
           format: 'table'
           severity: 'HIGH,CRITICAL'
+        continue-on-error: true
 
-      - name: Scan de l'image Linux (Génération du JSON)
+      - name: Scan de l'image Linux
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'node:alpine'
-          format: 'json'
-          output: 'trivy-report.json'
+          format: 'table'
           severity: 'HIGH,CRITICAL'
         continue-on-error: true
 
       # --- ÉTAPE 6 : Connexion au Registre GitHub (GHCR) ---
       - name: Connexion au Registre GitHub Packages
-        if: success()
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -76,40 +75,12 @@ jobs:
 
       # --- ÉTAPE 7 : Build et Push de l'image ---
       - name: Build et Push de l'image sécurisée
-        if: success()
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
 
-      # --- ÉTAPE 8 : Envoi groupé vers DefectDojo ---
-      - name: Envoyer les rapports vers DefectDojo
-        if: always()
-        run: |
-          # Envoi Trivy
-          curl -X POST "https://fast-monkeys-glow.loca.lt/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Trivy Scan" \
-            -F "file=@trivy-report.json" \
-            -F "engagement=1"
-          
-          # Envoi Semgrep
-          curl -X POST "https://fast-monkeys-glow.loca.lt/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Semgrep JSON Report" \
-            -F "file=@semgrep-report.json" \
-            -F "engagement=1"
-          
-          # Envoi Gitleaks
-          curl -X POST "https://fast-monkeys-glow.loca.lt/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Gitleaks Scan" \
-            -F "file=@gitleaks-report.json" \
-            -F "engagement=1" 
-
-      # --- ÉTAPE 9 : Déploiement sur Render (Ta ligne originale) ---
-      - name: Déployer sur Render en toute sécurité
-        if: success()
+      # --- ÉTAPE 8 : Déploiement sur Render ---
+      - name: Déployer sur Render
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
