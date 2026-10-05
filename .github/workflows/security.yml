@@ -33,7 +33,7 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: auto
-        continue-on-error: true
+        continue-on-error: false
 
       # --- ÉTAPE 4 : Analyse des dépendances (Natif) ---
       - name: Vérifier les vulnérabilités npm (Natif)
@@ -47,7 +47,7 @@ jobs:
           scan-type: 'fs'
           format: 'table'
           severity: 'HIGH,CRITICAL'
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Scan de la config Docker (IaC)
         uses: aquasecurity/trivy-action@master
@@ -55,7 +55,7 @@ jobs:
           scan-type: 'config'
           format: 'table'
           severity: 'HIGH,CRITICAL'
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Scan de l'image Linux
         uses: aquasecurity/trivy-action@master
