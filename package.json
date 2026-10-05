@@ -1,12 +1,12 @@
 {
-  "name": "devsecops-box",
+  "name": "test-vulnerable",
   "version": "1.0.0",
-  "description": "Mon application sécurisée",
-  "main": "app.js",
+  "description": "Application de test pour bloquer le pipeline",
+  "main": "src/app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node src/app.js"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "4.15.0"
   }
 }
