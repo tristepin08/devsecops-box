@@ -38,7 +38,7 @@ jobs:
       # --- ÉTAPE 4 : Analyse des dépendances (Natif) ---
       - name: Vérifier les vulnérabilités npm (Natif)
         run: npm audit --audit-level=high
-        continue-on-error: true
+        continue-on-error: false
 
       # --- ÉTAPE 5 : Le Triple Scan de Sécurité (Trivy) ---
       - name: Scan des dépendances (SCA)
